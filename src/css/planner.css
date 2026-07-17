@@ -1,0 +1,358 @@
+/* --------------------------------------------------
+   PROTO #9 - BALANCED SPACING (Calendar fixed, Task stretches)
+-------------------------------------------------- */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    background: #dfe5e2;
+    font-family: Georgia, serif;
+    color: #244e52;
+    padding: 20px;
+    font-size: 12px;
+}
+
+/* --------------------------------------------------
+   LAYOUT - UPDATED
+-------------------------------------------------- */
+#plannerRow {
+    display: flex;
+    align-items: flex-start;   /* CHANGED: Prevents any column from stretching taller than the Schedule (middle) */
+    gap: 16px;
+    min-height: 720px;
+}
+
+#leftColumn {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    width: 420px;              /* Left column unchanged */
+    flex-shrink: 0;
+}
+
+#dateCluster {
+    width: 420px;
+    background: white;
+    border: 1px solid #b8c3c0;
+    border-radius: 6px;
+    padding: 12px;
+    flex: none;
+}
+
+#taskList {
+    width: 420px;
+    background: white;
+    border: 1px solid #b8c3c0;
+    border-radius: 6px;
+    padding: 12px;
+    flex: 1;
+}
+
+/* --------------------------------------------------
+   DATE CLUSTER
+-------------------------------------------------- */
+.big-date {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.big-number {
+    font-size: 52px;
+    font-weight: bold;
+    line-height: 1;
+}
+
+.date-details { display: flex; flex-direction: column; }
+.weekday { font-size: 20px; font-weight: bold; }
+.monthyear { font-size: 14px; }
+
+.mini-calendars { display: flex; flex-direction: column; gap: 10px; }
+.current-month { width: 100%; }
+.adjacent-months { display: flex; gap: 12px; }
+
+.mini-month {
+    background: white;
+    border: 1px solid #b8c3c0;
+    border-radius: 6px;
+    padding: 8px;
+    flex: 1;
+}
+
+.mini-month-title {
+    text-align: center;
+    font-weight: bold;
+    margin-bottom: 6px;
+    font-size: 12px;
+}
+
+.mini-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 2px;
+    font-size: 11px;
+    text-align: center;
+}
+
+.mini-grid div {
+    padding: 4px 0;
+    height: 24px;
+    line-height: 24px;
+    cursor: pointer;
+}
+
+.mini-day:hover { background: #e0e7e4; border-radius: 3px; }
+.today { background: #244e52 !important; color: white; border-radius: 4px; }
+
+.date-nav {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    font-size: 12px;
+}
+.date-nav span { cursor: pointer; font-weight: bold; }
+
+/* --------------------------------------------------
+   TASK LIST - Background fix added
+-------------------------------------------------- */
+.task-header {
+    display: grid;
+    grid-template-columns: 40px 60px 1fr;
+    font-weight: bold;
+    margin-bottom: 8px;
+    padding-bottom: 4px;
+    border-bottom: 2px solid #244e52;
+}
+
+.task-header div:nth-child(1),
+.task-header div:nth-child(2) {
+    text-align: center;
+}
+
+.task-row {
+    display: grid;
+    grid-template-columns: 40px 60px 1fr;
+    min-height: 28px;
+    border-bottom: 1px solid #e0e0e0;
+    background: white;   /* ADDED: Restores white background on task rows */
+}
+
+.task-cell {
+    border: 1px solid #b8c3c0;
+    display: flex;
+    align-items: center;
+    padding: 6px;
+    background: white;   /* ADDED: Ensures cells stay white */
+}
+
+.status, .priority { justify-content: center; }
+.task-text { cursor: pointer; }
+
+.task-row:hover { background: #f8f9f8; }
+
+/* --------------------------------------------------
+   SCHEDULE (unchanged)
+-------------------------------------------------- */
+#schedule {
+    width: 340px;
+    background: white;
+    border: 1px solid #b8c3c0;
+    border-radius: 6px;
+    padding: 12px;
+    font-size: 11px;
+    min-height: 680px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.schedule-row {
+    display: grid;
+    grid-template-columns: 30px 1fr 28px;
+    padding: 2px 4px;
+    border-bottom: 1px solid #e0e5e3;
+    align-items: center;
+    gap: 4px;
+}
+
+.schedule-row:last-child {
+    border-bottom: none;
+}
+
+.schedule-hour {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: #244e52;
+    width: 28px;
+}
+
+.schedule-text {
+    min-height: 18px;
+    padding: 2px 6px;
+    cursor: text;
+    border-radius: 3px;
+}
+
+.schedule-text:hover {
+    background: #f8f9f8;
+}
+
+.add-to-task-btn {
+    background: #244e52;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    width: 24px;
+    height: 24px;
+    font-size: 15px;
+    cursor: pointer;
+    display: none;
+    line-height: 1;
+}
+
+.schedule-row:hover .add-to-task-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.add-to-task-btn:hover {
+    background: #3a7a82;
+}
+
+/* --------------------------------------------------
+   NOTES - Right column widened
+-------------------------------------------------- */
+
+#notes {
+    width: 840px;            /* CHANGED: Right-most column (Daily Notes) now 840px wide */
+    background: white;
+    border: 1px solid #b8c3c0;
+    border-radius: 6px;
+    padding: 12px;
+
+    display: flex;
+    flex-direction: column;
+
+    flex-shrink: 0;
+}
+
+#notesArea {
+    flex: 1;
+    overflow-y: auto;
+}
+
+/* Notes header/rows (unchanged from previous unification) */
+.notes-header-row {
+    display: grid;
+    grid-template-columns: 40px 60px 1fr 28px;
+    font-weight: bold;
+    border-bottom: 2px solid #244e52;
+    padding-bottom: 6px;
+    margin-bottom: 8px;
+    min-height: 28px;
+    align-items: center;
+}
+
+.notes-row {
+    display: grid;
+    grid-template-columns: 40px 60px 1fr 28px;
+    min-height: 28px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.notes-row:hover {
+    background: #f8f9f8;
+}
+
+.notes-cell {
+    border: 1px solid #b8c3c0;
+    display: flex;
+    align-items: center;
+    padding: 6px;
+}
+
+.notes-cell.status,
+.notes-cell.priority,
+.notes-cell.forward-cell {
+    justify-content: center;
+}
+
+.notes-text {
+    cursor: pointer;
+}
+
+.forward-cell {
+    cursor: pointer;
+    font-size: 18px;
+    color: #244e52;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+}
+
+.notes-row:hover .forward-cell {
+    opacity: 1;
+}
+/* Forward Button - Schedule-style appearing arrow for Notes */
+.forward-btn {
+    background: #244e52;
+    color: white;
+    border: none;
+    border-radius: 3px;
+    width: 24px;
+    height: 24px;
+    font-size: 15px;
+    cursor: pointer;
+    display: none;
+    line-height: 1;
+    align-items: center;
+    justify-content: center;
+}
+
+.notes-row:hover .forward-btn {
+    display: inline-flex;
+}
+
+.forward-btn:hover {
+    background: #3a7a82;
+}
+
+/* Forward Modal Styles */
+#forwardModal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+}
+
+#forwardModal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Forwarded Tasks - Visual Reference */
+.task-row.forwarded-task {
+    background: #e6f0fa !important;
+    border-left: 4px solid #3b82f6;
+}
+
+.task-row.forwarded-task .task-text {
+    font-weight: 500;
+    color: #1e40af;
+}
