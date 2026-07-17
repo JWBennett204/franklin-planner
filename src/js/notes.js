@@ -159,6 +159,52 @@ function buildNotesArea() {
     attachNotesListeners();
 }
 
+// --- Per-date persistence, same pattern as tasks.js ---
+
+function getCurrentNotes() {
+    return Array.from(document.querySelectorAll(".notes-row")).map(row => ({
+        status: row.querySelector(".status").getAttribute("data-status") || "",
+        letter: row.querySelector(".priority").getAttribute("data-letter") || "",
+        number: row.querySelector(".priority").getAttribute("data-number") || "",
+        text: row.querySelector(".notes-text").textContent === "(click to edit)" ? "" : row.querySelector(".notes-text").textContent
+    }));
+}
+
+function saveCurrentNotes() {
+    if (window.storage && typeof window.storage.saveNotes === "function") {
+        window.storage.saveNotes(window.currentPlannerDateKey, getCurrentNotes());
+    }
+}
+
+function loadNoteData(notes) {
+    const rows = document.querySelectorAll(".notes-row");
+    rows.forEach((row, i) => {
+        const note = notes[i] || { status: "", letter: "", number: "", text: "" };
+        const statusCell = row.querySelector(".status");
+        const priorityCell = row.querySelector(".priority");
+        const textCell = row.querySelector(".notes-text");
+
+        statusCell.setAttribute("data-status", note.status || "");
+        statusCell.textContent = note.status || "";
+
+        priorityCell.setAttribute("data-letter", note.letter || "");
+        priorityCell.setAttribute("data-number", note.number || "");
+        priorityCell.textContent = (note.letter || "") + (note.number || "");
+
+        textCell.textContent = note.text || "(click to edit)";
+    });
+}
+
+function loadNotesFor(dateObj) {
+    const key = dateObj.toISOString().split("T")[0];
+    let notes = (window.storage && typeof window.storage.getNotes === "function")
+        ? window.storage.getNotes(key)
+        : [];
+    while (notes.length < 32) notes.push({ status: "", letter: "", number: "", text: "" });
+    loadNoteData(notes);
+}
+window.loadNotesFor = loadNotesFor;
+
 function attachNotesListeners() {
     try {
         console.log("✅ Notes listeners attached");
@@ -174,6 +220,7 @@ function attachNotesListeners() {
                 let next = statusCycle[(index + 1) % statusCycle.length];
                 cell.setAttribute("data-status", next);
                 cell.textContent = next || "";
+                saveCurrentNotes();
             };
         });
 
@@ -191,6 +238,7 @@ function attachNotesListeners() {
                 cell.setAttribute("data-letter", l);
                 cell.setAttribute("data-number", n);
                 cell.textContent = next;
+                saveCurrentNotes();
             };
         });
 
@@ -202,6 +250,7 @@ function attachNotesListeners() {
                 const input = prompt("Edit note:", current);
                 if (input !== null) {
                     cell.textContent = input.trim() || "(click to edit)";
+                    saveCurrentNotes();
                 }
             };
         });
@@ -217,6 +266,7 @@ function attachNotesListeners() {
                         statusCell.setAttribute("data-status", "X");
                         statusCell.textContent = "X";
                     }
+                    saveCurrentNotes();
                 });
             };
         });
@@ -229,7 +279,9 @@ function initNotes() {
     renderNotesHeader();
     loadHazeldenQuote();
     buildNotesArea();
+    loadNotesFor(currentDate);
 }
 
 window.initNotes = initNotes;
 window.showForwardModal = showForwardModal;
+window.renderNotesHeader = renderNotesHeader;

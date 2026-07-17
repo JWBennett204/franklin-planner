@@ -1,5 +1,6 @@
 const SCHEDULE_PREFIX = "schedule-";
 const TASKS_PREFIX = "tasks-";
+const NOTES_PREFIX = "notes-";
 
 export const localStorageAdapter = {
     getSchedule(dateKey) {
@@ -44,6 +45,29 @@ export const localStorageAdapter = {
                 localStorage.removeItem(key);
             } else {
                 localStorage.setItem(key, JSON.stringify(tasks));
+            }
+        } catch {}
+    },
+
+    getNotes(dateKey) {
+        const key = NOTES_PREFIX + dateKey;
+        try {
+            const raw = localStorage.getItem(key);
+            if (!raw) return [];
+            const arr = JSON.parse(raw);
+            return Array.isArray(arr) ? arr : [];
+        } catch {
+            return [];
+        }
+    },
+
+    saveNotes(dateKey, notes) {
+        const key = NOTES_PREFIX + dateKey;
+        try {
+            if (!notes || notes.length === 0) {
+                localStorage.removeItem(key);
+            } else {
+                localStorage.setItem(key, JSON.stringify(notes));
             }
         } catch {}
     }

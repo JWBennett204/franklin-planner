@@ -84,6 +84,12 @@ function setPlannerDate(dateObj) {
     if (typeof window.loadTasksFor === "function") {
         window.loadTasksFor(dateObj);
     }
+    if (typeof window.renderNotesHeader === "function") {
+        window.renderNotesHeader();
+    }
+    if (typeof window.loadNotesFor === "function") {
+        window.loadNotesFor(dateObj);
+    }
 
     renderDateCluster(dateObj);
 }
