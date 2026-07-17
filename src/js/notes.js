@@ -1,4 +1,6 @@
 // js/notes.js — Complete with Visual Forward Modal + Click to Edit Fixed
+// Forward modal is now shared: notes.js owns it, tasks.js reuses it via
+// window.showForwardModal(row, textSelector, onConfirm).
 
 if (typeof currentDate === "undefined") {
     window.currentDate = new Date();
@@ -45,12 +47,21 @@ async function loadHazeldenQuote() {
 // Modal State
 let currentForwardRow = null;
 let selectedForwardDate = null;
+let currentForwardOnConfirm = null;
 
-function showForwardModal(row) {
+// row: the row element being forwarded
+// textSelector: which cell in the row holds the text to prefill (".notes-text" or ".task-text")
+// onConfirm(row, targetKey, taskText): called after the new task is created on the target date,
+//   so the caller can mark the source row however it wants (e.g. status "X" for notes, "→" for tasks)
+function showForwardModal(row, textSelector = ".notes-text", onConfirm = null) {
     currentForwardRow = row;
-    const noteText = row.querySelector(".notes-text").textContent.trim();
-    document.getElementById("modalTaskName").value = noteText || "";
+    currentForwardOnConfirm = onConfirm;
 
+    const raw = row.querySelector(textSelector).textContent.trim();
+    const prefillText = raw === "(click to edit)" ? "" : raw;
+    document.getElementById("modalTaskName").value = prefillText;
+
+    selectedForwardDate = null;
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     renderModalCalendar(tomorrow);
@@ -65,7 +76,8 @@ function renderModalCalendar(baseDate) {
 
     container.querySelectorAll('.mini-day').forEach(dayEl => {
         dayEl.style.cursor = 'pointer';
-        dayEl.onclick = () => {
+        dayEl.onclick = (e) => {
+            e.stopPropagation();
             selectedForwardDate = new Date(dayEl.getAttribute('data-date'));
             container.querySelectorAll('.mini-day').forEach(d => {
                 d.style.background = '';
@@ -95,10 +107,15 @@ function confirmForwardModal() {
         window.addTaskToDate(customTask, targetKey);
     }
 
-    const statusCell = currentForwardRow.querySelector(".status");
-    if (statusCell) {
-        statusCell.setAttribute("data-status", "X");
-        statusCell.textContent = "X";
+    if (typeof currentForwardOnConfirm === "function") {
+        currentForwardOnConfirm(currentForwardRow, targetKey, customTask);
+    } else {
+        // default behavior (forwarding a note): mark it done/moved
+        const statusCell = currentForwardRow.querySelector(".status");
+        if (statusCell) {
+            statusCell.setAttribute("data-status", "X");
+            statusCell.textContent = "X";
+        }
     }
 
     closeForwardModal();
@@ -109,6 +126,7 @@ function closeForwardModal() {
     document.getElementById("forwardModal").style.display = "none";
     currentForwardRow = null;
     selectedForwardDate = null;
+    currentForwardOnConfirm = null;
 }
 
 function buildNotesArea() {
@@ -193,7 +211,13 @@ function attachNotesListeners() {
             btn.onclick = (e) => {
                 e.stopImmediatePropagation();
                 const row = btn.closest(".notes-row");
-                showForwardModal(row);
+                showForwardModal(row, ".notes-text", (forwardedRow) => {
+                    const statusCell = forwardedRow.querySelector(".status");
+                    if (statusCell) {
+                        statusCell.setAttribute("data-status", "X");
+                        statusCell.textContent = "X";
+                    }
+                });
             };
         });
     } catch (err) {
@@ -208,3 +232,4 @@ function initNotes() {
 }
 
 window.initNotes = initNotes;
+window.showForwardModal = showForwardModal;

@@ -73,7 +73,6 @@ function renderDateCluster(baseDate = currentDate) {
     document.getElementById("dateCluster").innerHTML = html;
 }
 
-// Set planner date
 function setPlannerDate(dateObj) {
     const prevDate = currentDate;
     currentDate = dateObj;
@@ -89,7 +88,6 @@ function setPlannerDate(dateObj) {
     renderDateCluster(dateObj);
 }
 
-// Click handlers
 document.addEventListener("click", (e) => {
     if (e.target.id === "prevDay") {
         const d = new Date(currentDate);
@@ -105,7 +103,7 @@ document.addEventListener("click", (e) => {
         setPlannerDate(d);
     }
 
-    if (e.target.classList.contains("mini-day")) {
+    if (e.target.classList.contains("mini-day") && !e.target.closest("#modalCalendarContainer")) {
         const dateStr = e.target.getAttribute("data-date");
         if (dateStr) {
             setPlannerDate(new Date(dateStr + "T12:00:00"));

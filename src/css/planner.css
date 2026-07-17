@@ -118,10 +118,12 @@ body {
 
 /* --------------------------------------------------
    TASK LIST - Background fix added
+   CHANGED: 4th column (28px) added for the forward-to-date arrow,
+   matching the notes list layout.
 -------------------------------------------------- */
 .task-header {
     display: grid;
-    grid-template-columns: 40px 60px 1fr;
+    grid-template-columns: 40px 60px 1fr 28px;
     font-weight: bold;
     margin-bottom: 8px;
     padding-bottom: 4px;
@@ -135,7 +137,7 @@ body {
 
 .task-row {
     display: grid;
-    grid-template-columns: 40px 60px 1fr;
+    grid-template-columns: 40px 60px 1fr 28px;
     min-height: 28px;
     border-bottom: 1px solid #e0e0e0;
     background: white;   /* ADDED: Restores white background on task rows */
@@ -299,7 +301,7 @@ body {
 .notes-row:hover .forward-cell {
     opacity: 1;
 }
-/* Forward Button - Schedule-style appearing arrow for Notes */
+/* Forward Button - Schedule-style appearing arrow for Notes and Tasks */
 .forward-btn {
     background: #244e52;
     color: white;
@@ -319,22 +321,15 @@ body {
     display: inline-flex;
 }
 
+.task-row:hover .forward-btn {
+    display: inline-flex;
+}
+
 .forward-btn:hover {
     background: #3a7a82;
 }
 
 /* Forward Modal Styles */
-#forwardModal {
-    display: none;
-    position: fixed;
-    top: 0; left: 0;
-    width: 100%; height: 100%;
-    background: rgba(0,0,0,0.7);
-    z-index: 10000;
-    align-items: center;
-    justify-content: center;
-}
-
 #forwardModal {
     display: none;
     position: fixed;

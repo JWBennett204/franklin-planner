@@ -1,4 +1,4 @@
-// js/tasks.js — Clean with Forwarded Task Support
+// js/tasks.js — Click to edit, ABC priority cycling, and Forward-to-date support
 
 document.addEventListener("DOMContentLoaded", () => {
 
@@ -16,6 +16,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 <span>Prioritized Daily Task List</span>
                 <button id="clearTasksBtn" style="font-size:11px;padding:2px 8px;">Clear All</button>
             </div>
+            <div></div>
         </div>
     `;
 
@@ -25,6 +26,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 <div class="task-cell status" data-status=""></div>
                 <div class="task-cell priority" data-letter="" data-number=""></div>
                 <div class="task-cell task-text">(click to edit)</div>
+                <div class="task-cell">
+                    <button class="forward-btn" title="Forward to date">→</button>
+                </div>
             </div>
         `;
     }
@@ -63,9 +67,7 @@ document.addEventListener("DOMContentLoaded", () => {
             r.querySelector(".priority").textContent = (task.letter || "") + (task.number || "");
             r.querySelector(".task-text").textContent = task.text || "(click to edit)";
 
-            if (task.forwarded) {
-                r.classList.add("forwarded-task");
-            }
+            r.classList.toggle("forwarded-task", !!task.forwarded);
         });
     }
 
@@ -80,9 +82,11 @@ document.addEventListener("DOMContentLoaded", () => {
     window.loadTasksFor = loadTasksFor;
 
     function attachAllEventListeners() {
-        // Status, ABC, Text editing listeners (same as before)
         const statusCycle = ["", "X", "→", "•"];
-        document.querySelectorAll(".status").forEach(cell => {
+        const priorityStates = ["", "A", "A1", "A2", "A3", "A4", "B", "B1", "B2", "B3", "B4", "C", "C1", "C2", "C3", "C4"];
+
+        // Status
+        document.querySelectorAll(".task-row .status").forEach(cell => {
             cell.onclick = (e) => {
                 e.stopImmediatePropagation();
                 let current = cell.getAttribute("data-status") || "";
@@ -94,9 +98,53 @@ document.addEventListener("DOMContentLoaded", () => {
             };
         });
 
-        // ... (ABC and text listeners same as previous versions)
+        // ABC priority (click-through A1 → C4)
+        document.querySelectorAll(".task-row .priority").forEach(cell => {
+            cell.onclick = (e) => {
+                e.stopImmediatePropagation();
+                const current = (cell.getAttribute("data-letter") || "") + (cell.getAttribute("data-number") || "");
+                let idx = priorityStates.indexOf(current);
+                if (idx === -1) idx = 0;
+                const next = priorityStates[(idx + 1) % priorityStates.length];
+                const l = next ? next[0] : "";
+                const n = next && next.length > 1 ? next.slice(1) : "";
+                cell.setAttribute("data-letter", l);
+                cell.setAttribute("data-number", n);
+                cell.textContent = next;
+                saveCurrentTasks();
+            };
+        });
 
-        // (Omitted for brevity - keep your existing ones)
+        // Text - click to edit
+        document.querySelectorAll(".task-row .task-text").forEach(cell => {
+            cell.onclick = (e) => {
+                e.stopImmediatePropagation();
+                const current = cell.textContent === "(click to edit)" ? "" : cell.textContent;
+                const input = prompt("Edit task:", current);
+                if (input !== null) {
+                    cell.textContent = input.trim() || "(click to edit)";
+                    saveCurrentTasks();
+                }
+            };
+        });
+
+        // Forward this task to a specific date
+        document.querySelectorAll(".task-row .forward-btn").forEach(btn => {
+            btn.onclick = (e) => {
+                e.stopImmediatePropagation();
+                const row = btn.closest(".task-row");
+                if (typeof window.showForwardModal === "function") {
+                    window.showForwardModal(row, ".task-text", (forwardedRow) => {
+                        const statusCell = forwardedRow.querySelector(".status");
+                        if (statusCell) {
+                            statusCell.setAttribute("data-status", "→");
+                            statusCell.textContent = "→";
+                        }
+                        saveCurrentTasks();
+                    });
+                }
+            };
+        });
     }
 
     // Enhanced add to specific date
