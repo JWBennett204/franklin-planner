@@ -56,7 +56,7 @@ app.http("saveNotes", {
             return { jsonBody: { ok: true } };
         } catch (err) {
             context.error("POST /api/notes failed", err);
-            return { status: 500, jsonBody: { error: "Database error" } };
+            return { status: 500, jsonBody: { error: "Database error", detail: err.message, code: err.code } };
         }
     }
 });

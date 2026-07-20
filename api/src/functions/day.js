@@ -48,7 +48,9 @@ app.http("day", {
             return { jsonBody: { tasks, notes } };
         } catch (err) {
             context.error("GET /api/day failed", err);
-            return { status: 500, jsonBody: { error: "Database error" } };
+            // TEMP: surfacing the real error while we bring this online -- strip
+            // this back down to a generic message once things are working.
+            return { status: 500, jsonBody: { error: "Database error", detail: err.message, code: err.code } };
         }
     }
 });
