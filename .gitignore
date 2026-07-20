@@ -4,3 +4,4 @@ node_modules/
 *.user
 .DS_Store
 Thumbs.db
+local.settings.json

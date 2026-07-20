@@ -71,8 +71,13 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    function loadTasksFor(dateObj) {
+    // NOTE: now async -- awaits storage.loadDate() so the in-memory cache has
+    // this date's rows before we read them. Existing callers (index.html,
+    // calendar.js) call window.loadTasksFor(...) without awaiting it, which is
+    // fine: they're fire-and-forget UI refreshes, same as before this change.
+    async function loadTasksFor(dateObj) {
         const key = dateKey(dateObj);
+        await window.storage.loadDate(key);
         let tasks = window.storage.getTasks(key);
         while (tasks.length < 16) tasks.push({ status: "", letter: "", number: "", text: "", forwarded: false });
         loadTaskData(tasks);
@@ -148,9 +153,13 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // Enhanced add to specific date
-    window.addTaskToDate = function(text, targetDateKey = null) {
+    // NOTE: now async -- awaits storage.loadDate(key) because the target date
+    // (when forwarding to a future day) may not be the currently-loaded date,
+    // so its cache entry may not exist yet.
+    window.addTaskToDate = async function(text, targetDateKey = null) {
         if (!text || !text.trim()) return;
         const key = targetDateKey || window.currentPlannerDateKey;
+        await window.storage.loadDate(key);
         let tasks = window.storage.getTasks(key);
         while (tasks.length < 16) tasks.push({ status: "", letter: "", number: "", text: "", forwarded: false });
         let slot = tasks.findIndex(t => !t.text || t.text.trim() === "");

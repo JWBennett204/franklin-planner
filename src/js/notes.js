@@ -195,8 +195,15 @@ function loadNoteData(notes) {
     });
 }
 
-function loadNotesFor(dateObj) {
+// NOTE: now async -- awaits storage.loadDate() so the in-memory cache has
+// this date's rows before we read them. Existing callers (initNotes(),
+// calendar.js) call window.loadNotesFor(...) without awaiting it, which is
+// fine: they're fire-and-forget UI refreshes, same as before this change.
+async function loadNotesFor(dateObj) {
     const key = dateObj.toISOString().split("T")[0];
+    if (window.storage && typeof window.storage.loadDate === "function") {
+        await window.storage.loadDate(key);
+    }
     let notes = (window.storage && typeof window.storage.getNotes === "function")
         ? window.storage.getNotes(key)
         : [];
