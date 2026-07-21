@@ -28,7 +28,7 @@ jobs:
         shell: pwsh
         run: |
           cd '${{ env.AZURE_FUNCTIONAPP_PACKAGE_PATH }}'
-          npm ci --omit=dev
+          npm install --omit=dev
 
       - name: Deploy to Azure Function App
         uses: Azure/functions-action@v1
