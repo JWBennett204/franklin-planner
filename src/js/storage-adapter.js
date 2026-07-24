@@ -10,22 +10,24 @@ const CURRENT_MANAGER_ID = 1;
 // ---------------------------------------------------------------------------
 // apiAdapter: backed by the Azure SQL Database via the /api Functions.
 //
-// getTasks()/getNotes() stay SYNCHRONOUS (same call signature every other
-// file already uses) by reading from an in-memory cache. Callers must
-// `await storage.loadDate(dateKey)` once before reading a date for the
-// first time -- see loadTasksFor()/loadNotesFor() in tasks.js/notes.js.
-// saveTasks()/saveNotes() update the cache immediately (so the UI never
-// waits on the network) and persist to the API in the background.
+// getTasks()/getNotes()/getSchedule() stay SYNCHRONOUS (same call signature
+// every other file already uses) by reading from an in-memory cache. Callers
+// must `await storage.loadDate(dateKey)` once before reading a date for the
+// first time -- see loadTasksFor()/loadNotesFor() in tasks.js/notes.js and
+// loadScheduleFor() in schedule-behavior.js.
+// saveTasks()/saveNotes()/saveSchedule() update the cache immediately (so the
+// UI never waits on the network) and persist to the API in the background.
 // ---------------------------------------------------------------------------
 
 const cache = {
-    tasks: new Map(),  // dateKey -> array
-    notes: new Map()   // dateKey -> array
+    tasks: new Map(),   // dateKey -> array
+    notes: new Map(),   // dateKey -> array
+    schedule: new Map() // dateKey -> { slotId: text }
 };
 const inFlight = new Map(); // dateKey -> in-progress load promise, dedupes concurrent calls
 
 async function loadDate(dateKey) {
-    if (cache.tasks.has(dateKey) && cache.notes.has(dateKey)) return;
+    if (cache.tasks.has(dateKey) && cache.notes.has(dateKey) && cache.schedule.has(dateKey)) return;
     if (inFlight.has(dateKey)) return inFlight.get(dateKey);
 
     const promise = (async () => {
@@ -35,11 +37,13 @@ async function loadDate(dateKey) {
             const data = await res.json();
             cache.tasks.set(dateKey, Array.isArray(data.tasks) ? data.tasks : []);
             cache.notes.set(dateKey, Array.isArray(data.notes) ? data.notes : []);
+            cache.schedule.set(dateKey, (data.schedule && typeof data.schedule === "object") ? data.schedule : {});
         } catch (err) {
             console.error("storage-adapter: failed to load", dateKey, err);
             // Fail soft so the UI still renders (empty day) instead of hanging.
             if (!cache.tasks.has(dateKey)) cache.tasks.set(dateKey, []);
             if (!cache.notes.has(dateKey)) cache.notes.set(dateKey, []);
+            if (!cache.schedule.has(dateKey)) cache.schedule.set(dateKey, {});
         } finally {
             inFlight.delete(dateKey);
         }
@@ -78,29 +82,14 @@ export const apiAdapter = {
         postJSON("/notes", { managerId: CURRENT_MANAGER_ID, date: dateKey, notes: notes || [] });
     },
 
-    // Schedule persistence hasn't moved to the API yet (deferred -- see
-    // azure-data-storage-plan.md). Still plain localStorage for now.
     getSchedule(dateKey) {
-        const key = SCHEDULE_PREFIX + dateKey;
-        try {
-            const raw = localStorage.getItem(key);
-            if (!raw) return {};
-            const obj = JSON.parse(raw);
-            return (obj && typeof obj === "object") ? obj : {};
-        } catch {
-            return {};
-        }
+        return cache.schedule.get(dateKey) || {};
     },
 
     saveSchedule(dateKey, obj) {
-        const key = SCHEDULE_PREFIX + dateKey;
-        try {
-            if (!obj || Object.keys(obj).length === 0) {
-                localStorage.removeItem(key);
-            } else {
-                localStorage.setItem(key, JSON.stringify(obj));
-            }
-        } catch {}
+        const schedule = (obj && typeof obj === "object") ? obj : {};
+        cache.schedule.set(dateKey, schedule);
+        postJSON("/schedule", { managerId: CURRENT_MANAGER_ID, date: dateKey, schedule });
     }
 };
 

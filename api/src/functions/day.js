@@ -1,6 +1,7 @@
 // GET /api/day?managerId=1&date=2026-07-20
-// Returns { tasks: [...], notes: [...] } for one manager, one date -- the
-// single call storage-adapter.js makes when the planner navigates to a date.
+// Returns { tasks: [...], notes: [...], schedule: {...} } for one manager,
+// one date -- the single call storage-adapter.js makes when the planner
+// navigates to a date.
 const { app } = require("@azure/functions");
 const { sql, getPool, splitPriority } = require("../db");
 
@@ -35,6 +36,13 @@ app.http("day", {
                         WHERE ManagerId = @managerId AND NoteDate = @date
                         ORDER BY SortOrder`);
 
+            const scheduleResult = await pool.request()
+                .input("managerId", sql.Int, managerId)
+                .input("date", sql.Date, date)
+                .query(`SELECT SlotId, ItemText
+                        FROM ScheduleItems
+                        WHERE ManagerId = @managerId AND ScheduleDate = @date`);
+
             const tasks = tasksResult.recordset.map((r) => {
                 const { letter, number } = splitPriority(r.Priority);
                 return { status: r.status || "", letter, number, text: r.text || "", forwarded: !!r.forwarded };
@@ -45,7 +53,12 @@ app.http("day", {
                 return { status: r.status || "", letter, number, text: r.text || "" };
             });
 
-            return { jsonBody: { tasks, notes } };
+            const schedule = {};
+            for (const r of scheduleResult.recordset) {
+                schedule[r.SlotId] = r.ItemText;
+            }
+
+            return { jsonBody: { tasks, notes, schedule } };
         } catch (err) {
             context.error("GET /api/day failed", err);
             return { status: 500, jsonBody: { error: "Database error", detail: err.message, code: err.code } };

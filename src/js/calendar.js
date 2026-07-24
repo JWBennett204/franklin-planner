@@ -90,6 +90,9 @@ function setPlannerDate(dateObj) {
     if (typeof window.loadNotesFor === "function") {
         window.loadNotesFor(dateObj);
     }
+    if (typeof window.loadScheduleFor === "function") {
+        window.loadScheduleFor(window.currentPlannerDateKey);
+    }
 
     renderDateCluster(dateObj);
 }

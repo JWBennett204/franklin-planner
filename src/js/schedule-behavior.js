@@ -2,6 +2,8 @@
 import { storage } from "./storage-adapter.js";
 
 let getDateKeyFn = null;
+let cachedRows = null;
+let cachedMapping = null;
 
 function buildRowMapping(rowCount) {
     const mapping = [];
@@ -51,13 +53,38 @@ function handleEditRow(meta, textCell) {
     }
 }
 
-export function initScheduleBehavior(getDateKey) {
+// NOTE: async -- awaits storage.loadDate() so the in-memory cache has this
+// date's schedule before we read it, same pattern as loadTasksFor()/
+// loadNotesFor() in tasks.js/notes.js. Exposed on window so calendar.js can
+// call it whenever the planner navigates to a different date (see
+// setPlannerDate() in calendar.js), not just on the very first page load --
+// otherwise the Appointment Schedule panel would keep showing whichever
+// date's appointments happened to be loaded first.
+async function loadScheduleFor(dateKey) {
+    if (!cachedRows || !cachedMapping) return;
+    if (typeof storage.loadDate === "function") {
+        await storage.loadDate(dateKey);
+    }
+    const schedule = storage.getSchedule(dateKey);
+    cachedRows.forEach((row, i) => {
+        const textCell = row.querySelector(".schedule-text");
+        const meta = cachedMapping[i];
+        if (textCell && meta) {
+            textCell.textContent = schedule[meta.slotId] || "";
+        }
+    });
+}
+window.loadScheduleFor = loadScheduleFor;
+
+export async function initScheduleBehavior(getDateKey) {
     getDateKeyFn = getDateKey;
 
     const rows = Array.from(document.querySelectorAll(".schedule-row"));
     if (!rows.length) return;
 
     const mapping = buildRowMapping(rows.length);
+    cachedRows = rows;
+    cachedMapping = mapping;
 
     rows.forEach((rowEl, index) => {
         const meta = mapping[index];
@@ -89,13 +116,6 @@ export function initScheduleBehavior(getDateKey) {
     // Load saved appointments
     const dateKey = getDateKeyFn ? getDateKeyFn() : window.currentPlannerDateKey;
     if (dateKey) {
-        const schedule = storage.getSchedule(dateKey);
-        rows.forEach((row, i) => {
-            const textCell = row.querySelector(".schedule-text");
-            const meta = mapping[i];
-            if (textCell && meta) {
-                textCell.textContent = schedule[meta.slotId] || "";
-            }
-        });
+        await loadScheduleFor(dateKey);
     }
 }
