@@ -1,11 +1,12 @@
+import { getCurrentManagerId } from "./auth.js";
+
 const SCHEDULE_PREFIX = "schedule-";
 
 // --- Config ---
 const API_BASE = "/api";
-// Phase 1: single hardcoded manager per browser session (Joe = GM = ManagerId 1).
-// Real per-manager login isn't wired up yet -- see azure-data-storage-plan.md.
-// To test as the "Test Manager" account (ManagerId 2), change this to 2 locally.
-const CURRENT_MANAGER_ID = 1;
+// Which manager's data this session reads/writes comes from auth.js's
+// lightweight sign-in picker (see that file). It falls back to ManagerId 1
+// (Joe/GM) if nobody has signed in yet, so nothing here special-cases that.
 
 // ---------------------------------------------------------------------------
 // apiAdapter: backed by the Azure SQL Database via the /api Functions.
@@ -32,7 +33,7 @@ async function loadDate(dateKey) {
 
     const promise = (async () => {
         try {
-            const res = await fetch(`${API_BASE}/day?managerId=${CURRENT_MANAGER_ID}&date=${dateKey}`);
+            const res = await fetch(`${API_BASE}/day?managerId=${getCurrentManagerId()}&date=${dateKey}`);
             if (!res.ok) throw new Error(`GET /api/day ${res.status}`);
             const data = await res.json();
             cache.tasks.set(dateKey, Array.isArray(data.tasks) ? data.tasks : []);
@@ -70,7 +71,7 @@ export const apiAdapter = {
 
     saveTasks(dateKey, tasks) {
         cache.tasks.set(dateKey, tasks || []);
-        postJSON("/tasks", { managerId: CURRENT_MANAGER_ID, date: dateKey, tasks: tasks || [] });
+        postJSON("/tasks", { managerId: getCurrentManagerId(), date: dateKey, tasks: tasks || [] });
     },
 
     getNotes(dateKey) {
@@ -79,7 +80,7 @@ export const apiAdapter = {
 
     saveNotes(dateKey, notes) {
         cache.notes.set(dateKey, notes || []);
-        postJSON("/notes", { managerId: CURRENT_MANAGER_ID, date: dateKey, notes: notes || [] });
+        postJSON("/notes", { managerId: getCurrentManagerId(), date: dateKey, notes: notes || [] });
     },
 
     getSchedule(dateKey) {
@@ -89,7 +90,7 @@ export const apiAdapter = {
     saveSchedule(dateKey, obj) {
         const schedule = (obj && typeof obj === "object") ? obj : {};
         cache.schedule.set(dateKey, schedule);
-        postJSON("/schedule", { managerId: CURRENT_MANAGER_ID, date: dateKey, schedule });
+        postJSON("/schedule", { managerId: getCurrentManagerId(), date: dateKey, schedule });
     }
 };
 
