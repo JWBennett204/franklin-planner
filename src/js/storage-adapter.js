@@ -27,31 +27,70 @@ const cache = {
 };
 const inFlight = new Map(); // dateKey -> in-progress load promise, dedupes concurrent calls
 
+// Dates whose load ultimately failed even after retries. The serverless SQL
+// tier auto-pauses when idle, so the first request after a quiet spell can
+// fail while it wakes back up -- loadDate() retries a few times to ride that
+// out. If it still fails, we do NOT want tasks.js/notes.js/schedule-behavior
+// silently treating "couldn't load" as "this day is empty": the UI would
+// look blank, and the very next click-to-edit save would overwrite whatever
+// real data is actually sitting in the database with that emptiness. Save*
+// below checks this set and refuses to save (with a warning) instead.
+const loadFailedDates = new Set();
+
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function loadDate(dateKey) {
     if (cache.tasks.has(dateKey) && cache.notes.has(dateKey) && cache.schedule.has(dateKey)) return;
     if (inFlight.has(dateKey)) return inFlight.get(dateKey);
 
     const promise = (async () => {
-        try {
-            const res = await fetch(`${API_BASE}/day?managerId=${getCurrentManagerId()}&date=${dateKey}`);
-            if (!res.ok) throw new Error(`GET /api/day ${res.status}`);
-            const data = await res.json();
-            cache.tasks.set(dateKey, Array.isArray(data.tasks) ? data.tasks : []);
-            cache.notes.set(dateKey, Array.isArray(data.notes) ? data.notes : []);
-            cache.schedule.set(dateKey, (data.schedule && typeof data.schedule === "object") ? data.schedule : {});
-        } catch (err) {
-            console.error("storage-adapter: failed to load", dateKey, err);
-            // Fail soft so the UI still renders (empty day) instead of hanging.
-            if (!cache.tasks.has(dateKey)) cache.tasks.set(dateKey, []);
-            if (!cache.notes.has(dateKey)) cache.notes.set(dateKey, []);
-            if (!cache.schedule.has(dateKey)) cache.schedule.set(dateKey, {});
-        } finally {
-            inFlight.delete(dateKey);
+        const MAX_ATTEMPTS = 3;
+        const RETRY_DELAY_MS = 3000;
+
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            try {
+                const res = await fetch(`${API_BASE}/day?managerId=${getCurrentManagerId()}&date=${dateKey}`);
+                if (!res.ok) throw new Error(`GET /api/day ${res.status}`);
+                const data = await res.json();
+                cache.tasks.set(dateKey, Array.isArray(data.tasks) ? data.tasks : []);
+                cache.notes.set(dateKey, Array.isArray(data.notes) ? data.notes : []);
+                cache.schedule.set(dateKey, (data.schedule && typeof data.schedule === "object") ? data.schedule : {});
+                loadFailedDates.delete(dateKey);
+                return;
+            } catch (err) {
+                console.error(`storage-adapter: failed to load ${dateKey} (attempt ${attempt}/${MAX_ATTEMPTS})`, err);
+                if (attempt < MAX_ATTEMPTS) {
+                    await sleep(RETRY_DELAY_MS);
+                }
+            }
         }
+
+        // All retries failed. Fail soft so the UI still renders (empty day)
+        // instead of hanging -- but flag the date so saves are blocked rather
+        // than silently wiping real data. See loadFailedDates above.
+        loadFailedDates.add(dateKey);
+        if (!cache.tasks.has(dateKey)) cache.tasks.set(dateKey, []);
+        if (!cache.notes.has(dateKey)) cache.notes.set(dateKey, []);
+        if (!cache.schedule.has(dateKey)) cache.schedule.set(dateKey, {});
     })();
 
     inFlight.set(dateKey, promise);
-    return promise;
+    try {
+        await promise;
+    } finally {
+        inFlight.delete(dateKey);
+    }
+}
+
+function warnLoadFailed(dateKey) {
+    alert(
+        `This day's data didn't load correctly (the database may still be waking up). ` +
+        `Saving now could overwrite what's already there.\n\n` +
+        `Please refresh the page and try again in a moment.`
+    );
+    console.error(`storage-adapter: refused to save ${dateKey} -- its load never succeeded`);
 }
 
 function postJSON(path, body) {
@@ -70,6 +109,7 @@ export const apiAdapter = {
     },
 
     saveTasks(dateKey, tasks) {
+        if (loadFailedDates.has(dateKey)) { warnLoadFailed(dateKey); return; }
         cache.tasks.set(dateKey, tasks || []);
         postJSON("/tasks", { managerId: getCurrentManagerId(), date: dateKey, tasks: tasks || [] });
     },
@@ -79,6 +119,7 @@ export const apiAdapter = {
     },
 
     saveNotes(dateKey, notes) {
+        if (loadFailedDates.has(dateKey)) { warnLoadFailed(dateKey); return; }
         cache.notes.set(dateKey, notes || []);
         postJSON("/notes", { managerId: getCurrentManagerId(), date: dateKey, notes: notes || [] });
     },
@@ -88,6 +129,7 @@ export const apiAdapter = {
     },
 
     saveSchedule(dateKey, obj) {
+        if (loadFailedDates.has(dateKey)) { warnLoadFailed(dateKey); return; }
         const schedule = (obj && typeof obj === "object") ? obj : {};
         cache.schedule.set(dateKey, schedule);
         postJSON("/schedule", { managerId: getCurrentManagerId(), date: dateKey, schedule });
