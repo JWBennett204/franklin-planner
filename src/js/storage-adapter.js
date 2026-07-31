@@ -41,13 +41,18 @@ function sleep(ms) {
     return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-async function loadDate(dateKey) {
-    if (cache.tasks.has(dateKey) && cache.notes.has(dateKey) && cache.schedule.has(dateKey)) return;
+async function loadDate(dateKey, { force = false } = {}) {
+    if (!force && cache.tasks.has(dateKey) && cache.notes.has(dateKey) && cache.schedule.has(dateKey)) return;
     if (inFlight.has(dateKey)) return inFlight.get(dateKey);
 
     const promise = (async () => {
-        const MAX_ATTEMPTS = 3;
-        const RETRY_DELAY_MS = 3000;
+        // Cold starts on the serverless Function App + serverless SQL tier
+        // can take a while to wake up (occasionally over a minute) after the
+        // app has sat idle. 3 attempts at 3s apart (~9s total) wasn't enough
+        // headroom to reliably ride that out, so this now spreads 5 attempts
+        // out further (~38s total) before giving up.
+        const MAX_ATTEMPTS = 5;
+        const RETRY_DELAY_MS = 5000;
 
         for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
             try {
@@ -88,9 +93,15 @@ function warnLoadFailed(dateKey) {
     alert(
         `This day's data didn't load correctly (the database may still be waking up). ` +
         `Saving now could overwrite what's already there.\n\n` +
-        `Please refresh the page and try again in a moment.`
+        `Please wait about 30 seconds and try again -- no need to refresh the page.`
     );
     console.error(`storage-adapter: refused to save ${dateKey} -- its load never succeeded`);
+
+    // Kick off a fresh background retry right away instead of making the
+    // user refresh the whole page. If the backend has woken up by the time
+    // they try their edit again, loadDate() below will succeed and clear
+    // loadFailedDates, so the next save just works.
+    loadDate(dateKey, { force: true });
 }
 
 function postJSON(path, body) {

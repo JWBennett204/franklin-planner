@@ -20,7 +20,15 @@ const config = {
     options: { encrypt: true },
     authentication: {
         type: "azure-active-directory-default"
-    }
+    },
+    // The database is on the serverless tier, which auto-pauses when idle
+    // and can take a while to resume on the first connection after a quiet
+    // spell. The mssql driver's default timeouts are short enough that a
+    // slow-but-successful resume can get cut off and reported as a failure,
+    // forcing the client to retry from scratch. Give a single attempt more
+    // room to actually wait out a resume instead.
+    connectionTimeout: 45000,
+    requestTimeout: 30000
 };
 
 let poolPromise = null;

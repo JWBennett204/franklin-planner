@@ -52,8 +52,10 @@ function hideBootLoading() {
 // while it wakes back up. Without a retry here, that transient failure used
 // to silently skip the login screen entirely (see initAuth's catch below).
 async function fetchManagers() {
-    const MAX_ATTEMPTS = 3;
-    const RETRY_DELAY_MS = 3000;
+    // Same widened window as storage-adapter.js's loadDate(): 3 attempts at
+    // 3s apart wasn't enough headroom for a slow serverless cold start.
+    const MAX_ATTEMPTS = 5;
+    const RETRY_DELAY_MS = 5000;
     let lastErr;
 
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
