@@ -92,7 +92,7 @@ function renderModalCalendar(baseDate) {
     });
 }
 
-function confirmForwardModal() {
+async function confirmForwardModal() {
     if (!currentForwardRow) return;
     const customTask = document.getElementById("modalTaskName").value.trim();
     if (!customTask) {
@@ -106,23 +106,47 @@ function confirmForwardModal() {
 
     const targetKey = selectedForwardDate.toISOString().split("T")[0];
 
-    if (typeof window.addTaskToDate === "function") {
-        window.addTaskToDate(customTask, targetKey);
+    // addTaskToDate() is async -- it awaits storage.loadDate() for the
+    // target date, which can take several seconds (longer if the database
+    // is cold and has to retry). We now await it here too, so the "✅
+    // Forwarded" message and modal close only happen once the task has
+    // actually been saved -- previously this fired-and-forgot the save,
+    // which is why the target date sometimes looked empty right after
+    // forwarding ("long lag" before it showed up).
+    const confirmBtn = document.getElementById("forwardModalConfirmBtn");
+    const originalLabel = confirmBtn ? confirmBtn.textContent : null;
+    if (confirmBtn) {
+        confirmBtn.disabled = true;
+        confirmBtn.textContent = "Forwarding...";
     }
 
-    if (typeof currentForwardOnConfirm === "function") {
-        currentForwardOnConfirm(currentForwardRow, targetKey, customTask);
-    } else {
-        // default behavior (forwarding a note): mark it done/moved
-        const statusCell = currentForwardRow.querySelector(".status");
-        if (statusCell) {
-            statusCell.setAttribute("data-status", "X");
-            statusCell.textContent = "X";
+    try {
+        if (typeof window.addTaskToDate === "function") {
+            await window.addTaskToDate(customTask, targetKey);
+        }
+
+        if (typeof currentForwardOnConfirm === "function") {
+            currentForwardOnConfirm(currentForwardRow, targetKey, customTask);
+        } else {
+            // default behavior (forwarding a note): mark it done/moved
+            const statusCell = currentForwardRow.querySelector(".status");
+            if (statusCell) {
+                statusCell.setAttribute("data-status", "X");
+                statusCell.textContent = "X";
+            }
+        }
+
+        closeForwardModal();
+        alert(`✅ Forwarded "${customTask}" to ${targetKey}`);
+    } catch (err) {
+        console.error("Forward failed:", err);
+        alert(err && err.message ? err.message : "Forwarding failed -- please try again.");
+    } finally {
+        if (confirmBtn) {
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = originalLabel || "Forward";
         }
     }
-
-    closeForwardModal();
-    alert(`✅ Forwarded "${customTask}" to ${targetKey}`);
 }
 
 function closeForwardModal() {
@@ -263,8 +287,17 @@ function loadNoteData(notes) {
     });
 }
 
-function loadNotesFor(dateObj) {
+// NOTE: now async -- awaits storage.loadDate() first, matching the pattern
+// already used by tasks.js's loadTasksFor() and schedule-behavior.js's
+// loadScheduleFor(). Without this, notes for a date that hadn't been loaded
+// into the in-memory cache yet could read back empty. Existing callers
+// (index.html, calendar.js) call window.loadNotesFor(...) without awaiting
+// it, which is fine -- same fire-and-forget UI refresh pattern as before.
+async function loadNotesFor(dateObj) {
     const key = dateObj.toISOString().split("T")[0];
+    if (window.storage && typeof window.storage.loadDate === "function") {
+        await window.storage.loadDate(key);
+    }
     let notes = (window.storage && typeof window.storage.getNotes === "function")
         ? window.storage.getNotes(key)
         : [];

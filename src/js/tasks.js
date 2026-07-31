@@ -163,7 +163,13 @@ document.addEventListener("DOMContentLoaded", () => {
         let tasks = window.storage.getTasks(key);
         while (tasks.length < 16) tasks.push({ status: "", letter: "", number: "", text: "", forwarded: false });
         let slot = tasks.findIndex(t => !t.text || t.text.trim() === "");
-        if (slot === -1) slot = 0;
+        if (slot === -1) {
+            // All 16 rows already have text. This used to fall back to slot 0
+            // and silently overwrite whatever task was already sitting there
+            // -- a forward should never clobber existing data, so fail loudly
+            // instead and let the caller tell the user what happened.
+            throw new Error(`That date's task list is already full (16/16) -- couldn't forward "${text.trim()}" there.`);
+        }
         tasks[slot] = { status: "", letter: "", number: "", text: text.trim(), forwarded: true };
         window.storage.saveTasks(key, tasks);
         if (key === window.currentPlannerDateKey) {
@@ -172,7 +178,10 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     window.addTaskFromSchedule = function(text) {
-        window.addTaskToDate(text);
+        window.addTaskToDate(text).catch(err => {
+            console.error("Add to task list failed:", err);
+            alert(err && err.message ? err.message : "Couldn't add to task list.");
+        });
     };
 
     loadTasksFor(new Date());
