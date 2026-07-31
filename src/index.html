@@ -9,17 +9,6 @@
 </head>
 <body>
 
-<!-- Visible from first paint. auth.js removes this once it either shows the
-     login screen or finishes booting -- without it, a slow /api/managers or
-     /api/day response (e.g. the database waking up from being idle) made
-     the page look blank/broken instead of visibly loading. -->
-<div id="bootLoading" style="position:fixed;inset:0;background:#f8f9f8;z-index:19000;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:15px;color:#244e52;gap:8px;">
-    <div>Loading Franklin Planner&hellip;</div>
-    <div style="font-size:12px;color:#888;">First load in a while can take up to a minute while the database wakes up.</div>
-</div>
-
-<div id="signedInBadge" style="position:fixed;top:8px;right:12px;font-size:11px;color:#666;cursor:pointer;z-index:100;" title="Click to switch manager" onclick="window.signOutOfPlanner()"></div>
-
 <div id="plannerRow">
 
     <div id="leftColumn">
@@ -45,9 +34,8 @@
 <script type="module">
     import { renderScheduleGrid } from "./js/fp-schedule.js";
     import { initScheduleBehavior } from "./js/schedule-behavior.js";
-    import { initAuth, getCurrentManagerName } from "./js/auth.js";
 
-    function bootPlanner() {
+    window.addEventListener("load", () => {
 
         if (typeof currentDate === "undefined") {
             window.currentDate = new Date();
@@ -71,15 +59,6 @@
             }
         }, 100);
 
-        const badge = document.getElementById("signedInBadge");
-        if (badge) {
-            const name = getCurrentManagerName();
-            badge.textContent = name ? `Signed in as ${name} (switch)` : "";
-        }
-    }
-
-    window.addEventListener("load", () => {
-        initAuth(bootPlanner);
     });
 </script>
 
@@ -87,16 +66,32 @@
 <div id="forwardModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:10000; align-items:center; justify-content:center;">
     <div style="background:white; padding:20px; border-radius:8px; width:460px; max-height:85vh; overflow:auto; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
         <h3 style="margin:0 0 16px 0;">Forward Note to Task</h3>
-
+        
         <label><strong>Task Name:</strong></label><br>
         <input id="modalTaskName" type="text" style="width:100%; padding:10px; margin:8px 0 16px 0; border:1px solid #b8c3c0; border-radius:4px; font-size:15px;">
-
+        
         <label><strong>Select Forward Date:</strong></label><br>
         <div id="modalCalendarContainer" style="margin:12px 0; border:1px solid #b8c3c0; padding:10px; border-radius:6px; background:#f8f9f8;"></div>
-
+        
         <div style="text-align:right; margin-top:16px;">
             <button onclick="confirmForwardModal()" style="background:#244e52; color:white; padding:10px 20px; border:none; border-radius:4px; margin-right:8px; cursor:pointer;">Forward</button>
             <button onclick="closeForwardModal()" style="padding:10px 20px; border:1px solid #b8c3c0; background:white; border-radius:4px; cursor:pointer;">Cancel</button>
+        </div>
+    </div>
+</div>
+
+<!-- Multi-line Text Edit Modal (Notes today; Tasks can reuse it the same
+     way tasks.js reuses the Forward modal above) -->
+<div id="textEditModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); z-index:10000; align-items:center; justify-content:center;">
+    <div style="background:white; padding:20px; border-radius:8px; width:480px; max-height:85vh; overflow:auto; box-shadow:0 4px 20px rgba(0,0,0,0.3);">
+        <h3 id="textEditModalTitle" style="margin:0 0 16px 0;">Edit Note</h3>
+
+        <textarea id="textEditTextarea" rows="8" placeholder="Type here -- press Enter for a new line." style="width:100%; padding:10px; border:1px solid #b8c3c0; border-radius:4px; font-family:Georgia, serif; font-size:14px; line-height:1.4; resize:vertical; box-sizing:border-box;"></textarea>
+        <div style="font-size:11px; color:#888; margin-top:4px;">Ctrl/Cmd+Enter to save &middot; Esc to cancel</div>
+
+        <div style="text-align:right; margin-top:16px;">
+            <button onclick="saveTextEditModal()" style="background:#244e52; color:white; padding:10px 20px; border:none; border-radius:4px; margin-right:8px; cursor:pointer;">Save</button>
+            <button onclick="closeTextEditModal()" style="padding:10px 20px; border:1px solid #b8c3c0; background:white; border-radius:4px; cursor:pointer;">Cancel</button>
         </div>
     </div>
 </div>
