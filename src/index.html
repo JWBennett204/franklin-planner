@@ -9,6 +9,15 @@
 </head>
 <body>
 
+<!-- Visible from first paint. auth.js removes this once it either shows the
+     login screen or finishes booting -- without it, a slow /api/managers or
+     /api/day response (e.g. the database waking up from being idle) made
+     the page look blank/broken instead of visibly loading. -->
+<div id="bootLoading" style="position:fixed;inset:0;background:#f8f9f8;z-index:19000;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:15px;color:#244e52;gap:8px;">
+    <div>Loading Franklin Planner&hellip;</div>
+    <div style="font-size:12px;color:#888;">First load in a while can take up to 30 seconds while the database wakes up.</div>
+</div>
+
 <div id="signedInBadge" style="position:fixed;top:8px;right:12px;font-size:11px;color:#666;cursor:pointer;z-index:100;" title="Click to switch manager" onclick="window.signOutOfPlanner()"></div>
 
 <div id="plannerRow">

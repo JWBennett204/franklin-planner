@@ -34,11 +34,43 @@ export function signOut() {
 }
 window.signOutOfPlanner = signOut;
 
+function sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Removes the "Loading..." overlay (see index.html) that's visible from the
+// moment the page loads. Without this, a slow /api/managers response (e.g.
+// the serverless SQL database waking up from being idle) left the page
+// looking blank/broken instead of visibly loading.
+function hideBootLoading() {
+    const el = document.getElementById("bootLoading");
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+}
+
+// Retries like storage-adapter.js's loadDate(): the serverless SQL tier
+// auto-pauses when idle, so the first request after a quiet spell can fail
+// while it wakes back up. Without a retry here, that transient failure used
+// to silently skip the login screen entirely (see initAuth's catch below).
 async function fetchManagers() {
-    const res = await fetch("/api/managers");
-    if (!res.ok) throw new Error(`GET /api/managers ${res.status}`);
-    const data = await res.json();
-    return Array.isArray(data.managers) ? data.managers : [];
+    const MAX_ATTEMPTS = 3;
+    const RETRY_DELAY_MS = 3000;
+    let lastErr;
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        try {
+            const res = await fetch("/api/managers");
+            if (!res.ok) throw new Error(`GET /api/managers ${res.status}`);
+            const data = await res.json();
+            return Array.isArray(data.managers) ? data.managers : [];
+        } catch (err) {
+            lastErr = err;
+            console.error(`auth: failed to load managers (attempt ${attempt}/${MAX_ATTEMPTS})`, err);
+            if (attempt < MAX_ATTEMPTS) {
+                await sleep(RETRY_DELAY_MS);
+            }
+        }
+    }
+    throw lastErr;
 }
 
 function renderLoginScreen(managers, onPicked) {
@@ -80,15 +112,17 @@ function renderLoginScreen(managers, onPicked) {
 // initAuth(onReady): if a manager was already picked earlier this browser
 // session, calls onReady() immediately. Otherwise shows the picker and
 // calls onReady() once someone is picked. Fails open (calls onReady()
-// straight away, falling back to ManagerId 1) if /api/managers has a
-// problem, so a hiccup in this new feature can't lock the whole app out.
+// straight away, falling back to ManagerId 1) only after retries above are
+// exhausted, so a hiccup in this new feature can't lock the whole app out.
 export async function initAuth(onReady) {
     if (sessionStorage.getItem(MANAGER_ID_KEY)) {
+        hideBootLoading();
         onReady();
         return;
     }
     try {
         const managers = await fetchManagers();
+        hideBootLoading();
         if (!managers.length) {
             console.error("auth: no managers returned from /api/managers");
             onReady();
@@ -96,7 +130,8 @@ export async function initAuth(onReady) {
         }
         renderLoginScreen(managers, onReady);
     } catch (err) {
-        console.error("auth: failed to load managers", err);
+        console.error("auth: failed to load managers after retries", err);
+        hideBootLoading();
         onReady();
     }
 }
