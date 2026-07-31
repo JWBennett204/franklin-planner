@@ -20,7 +20,7 @@ body {
 -------------------------------------------------- */
 #plannerRow {
     display: flex;
-    align-items: flex-start;   /* CHANGED: Prevents any column from stretching taller than the Schedule (middle) */
+    align-items: flex-start; /* CHANGED: Prevents any column from stretching taller than the Schedule (middle) */
     gap: 16px;
     min-height: 720px;
 }
@@ -29,7 +29,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    width: 420px;              /* Left column unchanged */
+    width: 420px; /* Left column unchanged */
     flex-shrink: 0;
 }
 
@@ -140,7 +140,7 @@ body {
     grid-template-columns: 40px 60px 1fr 28px;
     min-height: 28px;
     border-bottom: 1px solid #e0e0e0;
-    background: white;   /* ADDED: Restores white background on task rows */
+    background: white; /* ADDED: Restores white background on task rows */
 }
 
 .task-cell {
@@ -148,7 +148,7 @@ body {
     display: flex;
     align-items: center;
     padding: 6px;
-    background: white;   /* ADDED: Ensures cells stay white */
+    background: white; /* ADDED: Ensures cells stay white */
 }
 
 .status, .priority { justify-content: center; }
@@ -214,11 +214,13 @@ body {
     height: 24px;
     font-size: 15px;
     cursor: pointer;
-    display: none;
     line-height: 1;
-}
-
-.schedule-row:hover .add-to-task-btn {
+    /* Was hover-only (display:none, revealed by .schedule-row:hover) -- that
+       relies on a mouse hover state that doesn't reliably exist on touch
+       devices (iPhone Safari), which made "forward schedule item to task"
+       look broken/undiscoverable on mobile even though the underlying click
+       handler always worked correctly. Always-visible is simpler and works
+       the same on every device. */
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -233,7 +235,7 @@ body {
 -------------------------------------------------- */
 
 #notes {
-    width: 840px;            /* CHANGED: Right-most column (Daily Notes) now 840px wide */
+    width: 840px; /* CHANGED: Right-most column (Daily Notes) now 840px wide */
     background: white;
     border: 1px solid #b8c3c0;
     border-radius: 6px;
@@ -311,18 +313,13 @@ body {
     height: 24px;
     font-size: 15px;
     cursor: pointer;
-    display: none;
     line-height: 1;
+    /* Was hover-only, same issue and same fix as .add-to-task-btn above --
+       always-visible instead of relying on a mouse hover that doesn't exist
+       on touch devices. */
+    display: inline-flex;
     align-items: center;
     justify-content: center;
-}
-
-.notes-row:hover .forward-btn {
-    display: inline-flex;
-}
-
-.task-row:hover .forward-btn {
-    display: inline-flex;
 }
 
 .forward-btn:hover {
