@@ -20,7 +20,7 @@ body {
 -------------------------------------------------- */
 #plannerRow {
     display: flex;
-    align-items: flex-start; /* CHANGED: Prevents any column from stretching taller than the Schedule (middle) */
+    align-items: flex-start;   /* CHANGED: Prevents any column from stretching taller than the Schedule (middle) */
     gap: 16px;
     min-height: 720px;
 }
@@ -29,7 +29,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: 10px;
-    width: 420px; /* Left column unchanged */
+    width: 420px;              /* Left column unchanged */
     flex-shrink: 0;
 }
 
@@ -140,7 +140,7 @@ body {
     grid-template-columns: 40px 60px 1fr 28px;
     min-height: 28px;
     border-bottom: 1px solid #e0e0e0;
-    background: white; /* ADDED: Restores white background on task rows */
+    background: white;   /* ADDED: Restores white background on task rows */
 }
 
 .task-cell {
@@ -148,7 +148,7 @@ body {
     display: flex;
     align-items: center;
     padding: 6px;
-    background: white; /* ADDED: Ensures cells stay white */
+    background: white;   /* ADDED: Ensures cells stay white */
 }
 
 .status, .priority { justify-content: center; }
@@ -217,10 +217,9 @@ body {
     line-height: 1;
     /* Was hover-only (display:none, revealed by .schedule-row:hover) -- that
        relies on a mouse hover state that doesn't reliably exist on touch
-       devices (iPhone Safari), which made "forward schedule item to task"
-       look broken/undiscoverable on mobile even though the underlying click
-       handler always worked correctly. Always-visible is simpler and works
-       the same on every device. */
+       devices (iPhone Safari), which made this look broken/undiscoverable
+       on mobile even though the underlying click handler always worked.
+       Always-visible is simpler and works the same on every device. */
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -235,7 +234,7 @@ body {
 -------------------------------------------------- */
 
 #notes {
-    width: 840px; /* CHANGED: Right-most column (Daily Notes) now 840px wide */
+    width: 840px;            /* CHANGED: Right-most column (Daily Notes) now 840px wide */
     background: white;
     border: 1px solid #b8c3c0;
     border-radius: 6px;
@@ -290,6 +289,11 @@ body {
 
 .notes-text {
     cursor: pointer;
+    /* Notes can now hold multi-line text (see the Edit Note modal in
+       notes.js) -- without this, the browser would collapse any saved
+       line breaks back down to a single visual line. */
+    white-space: pre-wrap;
+    word-break: break-word;
 }
 
 .forward-cell {
@@ -350,6 +354,18 @@ body {
 
 /* Forward Modal Styles */
 #forwardModal {
+    display: none;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0,0,0,0.7);
+    z-index: 10000;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Text Edit Modal (Notes, and Tasks if it opts in) -- see notes.js */
+#textEditModal {
     display: none;
     position: fixed;
     top: 0; left: 0;
