@@ -58,7 +58,10 @@ function showForwardModal(row, textSelector = ".notes-text", onConfirm = null) {
     currentForwardOnConfirm = onConfirm;
 
     const raw = row.querySelector(textSelector).textContent.trim();
-    const prefillText = raw === "(click to edit)" ? "" : raw;
+    // modalTaskName is a single-line input -- if the source is now a
+    // multi-line note, collapse it to one line for the task suggestion
+    // (still editable in the modal before confirming).
+    const prefillText = raw === "(click to edit)" ? "" : raw.replace(/\s*\n\s*/g, " ");
     document.getElementById("modalTaskName").value = prefillText;
 
     selectedForwardDate = null;
@@ -129,6 +132,71 @@ function closeForwardModal() {
     currentForwardOnConfirm = null;
 }
 
+// Shared multi-line text-edit modal -- same ownership pattern as
+// showForwardModal above (notes.js owns it, tasks.js can reuse it the same
+// way it reuses the forward modal). Replaces the old prompt()-based editor,
+// which only allowed a single line and no way to enter a carriage return.
+let currentTextEditRow = null;
+let currentTextEditSelector = null;
+let currentTextEditOnSave = null;
+
+function showTextEditModal(row, textSelector, title, onSave) {
+    currentTextEditRow = row;
+    currentTextEditSelector = textSelector;
+    currentTextEditOnSave = onSave;
+
+    const cell = row.querySelector(textSelector);
+    const current = cell.textContent === "(click to edit)" ? "" : cell.textContent;
+
+    document.getElementById("textEditModalTitle").textContent = title;
+    const textarea = document.getElementById("textEditTextarea");
+    textarea.value = current;
+
+    document.getElementById("textEditModal").style.display = "flex";
+    textarea.focus();
+    // Cursor at the end, rather than the browser's default select-all, so
+    // clicking in to add a line doesn't risk wiping existing text by typing.
+    textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+}
+
+function saveTextEditModal() {
+    if (!currentTextEditRow) return;
+    const textarea = document.getElementById("textEditTextarea");
+    const value = textarea.value.trim();
+    const cell = currentTextEditRow.querySelector(currentTextEditSelector);
+    cell.textContent = value || "(click to edit)";
+    if (typeof currentTextEditOnSave === "function") {
+        currentTextEditOnSave();
+    }
+    closeTextEditModal();
+}
+
+function closeTextEditModal() {
+    document.getElementById("textEditModal").style.display = "none";
+    currentTextEditRow = null;
+    currentTextEditSelector = null;
+    currentTextEditOnSave = null;
+}
+
+// Ctrl/Cmd+Enter saves, Escape cancels, while the modal is open. Plain
+// Enter is intentionally left alone -- it just inserts a newline in the
+// textarea, which is the whole point of this modal.
+document.addEventListener("keydown", (e) => {
+    const modal = document.getElementById("textEditModal");
+    if (!modal || modal.style.display === "none") return;
+    if (e.key === "Escape") {
+        e.preventDefault();
+        closeTextEditModal();
+    } else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        saveTextEditModal();
+    }
+});
+
+window.showTextEditModal = showTextEditModal;
+window.saveTextEditModal = saveTextEditModal;
+window.closeTextEditModal = closeTextEditModal;
+
 function buildNotesArea() {
     const area = document.getElementById("notesArea");
     if (!area) return;
@@ -195,15 +263,8 @@ function loadNoteData(notes) {
     });
 }
 
-// NOTE: now async -- awaits storage.loadDate() so the in-memory cache has
-// this date's rows before we read them. Existing callers (initNotes(),
-// calendar.js) call window.loadNotesFor(...) without awaiting it, which is
-// fine: they're fire-and-forget UI refreshes, same as before this change.
-async function loadNotesFor(dateObj) {
+function loadNotesFor(dateObj) {
     const key = dateObj.toISOString().split("T")[0];
-    if (window.storage && typeof window.storage.loadDate === "function") {
-        await window.storage.loadDate(key);
-    }
     let notes = (window.storage && typeof window.storage.getNotes === "function")
         ? window.storage.getNotes(key)
         : [];
@@ -249,16 +310,13 @@ function attachNotesListeners() {
             };
         });
 
-        // Text editing - FIXED
+        // Text editing - opens the multi-line Edit Note modal (was a
+        // single-line prompt() dialog, which couldn't hold a carriage return)
         document.querySelectorAll(".notes-row .notes-text").forEach(cell => {
             cell.onclick = (e) => {
                 if (e.target.closest(".forward-btn")) return;
-                const current = cell.textContent === "(click to edit)" ? "" : cell.textContent;
-                const input = prompt("Edit note:", current);
-                if (input !== null) {
-                    cell.textContent = input.trim() || "(click to edit)";
-                    saveCurrentNotes();
-                }
+                const row = cell.closest(".notes-row");
+                window.showTextEditModal(row, ".notes-text", "Edit Note", saveCurrentNotes);
             };
         });
 
