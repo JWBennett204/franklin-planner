@@ -326,6 +326,28 @@ body {
     background: #3a7a82;
 }
 
+/* On devices with a real mouse (hover: hover, pointer: fine), restore the
+   original appearing-on-hover look -- Joe prefers the arrows to stay
+   tucked away until you mouse over a row on desktop. Touch devices (no
+   real hover, e.g. iPhone Safari) are excluded from this and keep the
+   always-visible buttons set above, since hover-only is what made
+   "forward schedule item to task" unusable on mobile in the first place. */
+@media (hover: hover) and (pointer: fine) {
+    .add-to-task-btn,
+    .forward-btn {
+        display: none;
+    }
+
+    .schedule-row:hover .add-to-task-btn {
+        display: inline-flex;
+    }
+
+    .notes-row:hover .forward-btn,
+    .task-row:hover .forward-btn {
+        display: inline-flex;
+    }
+}
+
 /* Forward Modal Styles */
 #forwardModal {
     display: none;
