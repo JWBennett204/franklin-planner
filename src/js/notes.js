@@ -48,12 +48,19 @@ async function loadHazeldenQuote() {
 let currentForwardRow = null;
 let selectedForwardDate = null;
 let currentForwardOnConfirm = null;
+let forwardInFlight = false; // true while a previous confirmForwardModal() save is still in progress
 
 // row: the row element being forwarded
 // textSelector: which cell in the row holds the text to prefill (".notes-text" or ".task-text")
 // onConfirm(row, targetKey, taskText): called after the new task is created on the target date,
 //   so the caller can mark the source row however it wants (e.g. status "X" for notes, "→" for tasks)
 function showForwardModal(row, textSelector = ".notes-text", onConfirm = null) {
+    // Don't let a second forward get opened while an earlier one is still
+    // saving -- doing so would reassign currentForwardRow/currentForwardOnConfirm
+    // out from under the in-flight confirmForwardModal() call still awaiting
+    // that earlier save, so it would go on to mark the WRONG row as forwarded
+    // once it finally resolved (see confirmForwardModal for the full story).
+    if (forwardInFlight) return;
     currentForwardRow = row;
     currentForwardOnConfirm = onConfirm;
 
@@ -93,7 +100,7 @@ function renderModalCalendar(baseDate) {
 }
 
 async function confirmForwardModal() {
-    if (!currentForwardRow) return;
+    if (!currentForwardRow || forwardInFlight) return;
     const customTask = document.getElementById("modalTaskName").value.trim();
     if (!customTask) {
         alert("Task name is required.");
@@ -104,6 +111,18 @@ async function confirmForwardModal() {
         return;
     }
 
+    // Snapshot everything this invocation needs BEFORE the await below.
+    // currentForwardRow/currentForwardOnConfirm are shared module-level
+    // variables -- without this snapshot, they could only ever be read
+    // *after* the save resolves, by which point a second forward (opened
+    // while this one was still saving) may have reassigned them, or
+    // Cancel may have nulled them out. That's exactly what caused a task
+    // to actually land on the target date correctly while its source row
+    // never got marked as forwarded: the save succeeded, but by the time
+    // execution resumed after the await, currentForwardRow no longer
+    // pointed at the row that started this forward.
+    const row = currentForwardRow;
+    const onConfirm = currentForwardOnConfirm;
     const targetKey = selectedForwardDate.toISOString().split("T")[0];
 
     // addTaskToDate() is async -- it awaits storage.loadDate() for the
@@ -114,10 +133,19 @@ async function confirmForwardModal() {
     // which is why the target date sometimes looked empty right after
     // forwarding ("long lag" before it showed up).
     const confirmBtn = document.getElementById("forwardModalConfirmBtn");
+    const cancelBtn = document.getElementById("forwardModalCancelBtn");
     const originalLabel = confirmBtn ? confirmBtn.textContent : null;
+    forwardInFlight = true;
     if (confirmBtn) {
         confirmBtn.disabled = true;
         confirmBtn.textContent = "Forwarding...";
+    }
+    if (cancelBtn) {
+        // Canceling can't actually stop a save that's already in flight --
+        // letting it "succeed" just invited exactly the mixup this fix is
+        // for (close the modal, immediately open a new forward, and now
+        // two saves are racing over the same shared state).
+        cancelBtn.disabled = true;
     }
 
     try {
@@ -125,31 +153,37 @@ async function confirmForwardModal() {
             await window.addTaskToDate(customTask, targetKey);
         }
 
-        if (typeof currentForwardOnConfirm === "function") {
-            currentForwardOnConfirm(currentForwardRow, targetKey, customTask);
+        if (typeof onConfirm === "function") {
+            onConfirm(row, targetKey, customTask);
         } else {
             // default behavior (forwarding a note): mark it done/moved
-            const statusCell = currentForwardRow.querySelector(".status");
+            const statusCell = row.querySelector(".status");
             if (statusCell) {
                 statusCell.setAttribute("data-status", "X");
                 statusCell.textContent = "X";
             }
         }
 
+        forwardInFlight = false;
         closeForwardModal();
         alert(`✅ Forwarded "${customTask}" to ${targetKey}`);
     } catch (err) {
         console.error("Forward failed:", err);
         alert(err && err.message ? err.message : "Forwarding failed -- please try again.");
     } finally {
+        forwardInFlight = false;
         if (confirmBtn) {
             confirmBtn.disabled = false;
             confirmBtn.textContent = originalLabel || "Forward";
+        }
+        if (cancelBtn) {
+            cancelBtn.disabled = false;
         }
     }
 }
 
 function closeForwardModal() {
+    if (forwardInFlight) return; // a save is still in progress -- can't cancel it
     document.getElementById("forwardModal").style.display = "none";
     currentForwardRow = null;
     selectedForwardDate = null;
