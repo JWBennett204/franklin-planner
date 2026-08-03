@@ -35,7 +35,18 @@ document.addEventListener("DOMContentLoaded", () => {
     taskList.innerHTML = html;
 
     document.getElementById("clearTasksBtn").addEventListener("click", () => {
-        if (confirm("Clear ALL tasks for today?")) {
+        // Show exactly what will be deleted before wiping the list -- a
+        // generic "Clear ALL tasks?" prompt made it too easy to nuke real
+        // tasks along with junk/duplicate rows (e.g. after clearing out
+        // test data), since there was no way to see what was actually in
+        // the list before confirming.
+        const currentTasks = getCurrentTasks().filter(t => t.text && t.text.trim());
+        if (currentTasks.length === 0) {
+            return; // nothing to clear, no need to prompt
+        }
+        const preview = currentTasks.map((t, i) => `${i + 1}. ${t.text}`).join("\n");
+        const confirmed = confirm(`Clear ALL ${currentTasks.length} task(s) for today?\n\n${preview}`);
+        if (confirmed) {
             window.storage.saveTasks(window.currentPlannerDateKey, []);
             loadTasksFor(new Date(window.currentPlannerDateKey));
         }
@@ -158,19 +169,31 @@ document.addEventListener("DOMContentLoaded", () => {
     // so its cache entry may not exist yet.
     window.addTaskToDate = async function(text, targetDateKey = null) {
         if (!text || !text.trim()) return;
+        const trimmedText = text.trim();
         const key = targetDateKey || window.currentPlannerDateKey;
         await window.storage.loadDate(key);
         let tasks = window.storage.getTasks(key);
         while (tasks.length < 16) tasks.push({ status: "", letter: "", number: "", text: "", forwarded: false });
+
+        // Guard against accidental duplicate adds -- e.g. clicking a
+        // schedule item's "add to task list" arrow more than once, or
+        // forwarding the same note twice. This is exactly what filled a
+        // day's task list with 14 copies of "more day start" and forced a
+        // full Clear All that ended up wiping out real tasks too.
+        const alreadyPresent = tasks.some(t => t.text && t.text.trim() === trimmedText);
+        if (alreadyPresent) {
+            throw new Error(`"${trimmedText}" is already on that day's task list -- not adding a duplicate.`);
+        }
+
         let slot = tasks.findIndex(t => !t.text || t.text.trim() === "");
         if (slot === -1) {
             // All 16 rows already have text. This used to fall back to slot 0
             // and silently overwrite whatever task was already sitting there
             // -- a forward should never clobber existing data, so fail loudly
             // instead and let the caller tell the user what happened.
-            throw new Error(`That date's task list is already full (16/16) -- couldn't forward "${text.trim()}" there.`);
+            throw new Error(`That date's task list is already full (16/16) -- couldn't forward "${trimmedText}" there.`);
         }
-        tasks[slot] = { status: "", letter: "", number: "", text: text.trim(), forwarded: true };
+        tasks[slot] = { status: "", letter: "", number: "", text: trimmedText, forwarded: true };
         window.storage.saveTasks(key, tasks);
         if (key === window.currentPlannerDateKey) {
             window.loadTasksFor(new Date(key));
